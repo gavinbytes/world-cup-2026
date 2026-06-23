@@ -83,9 +83,13 @@ class Handler(SimpleHTTPRequestHandler):
 
 def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("PORT", 8642))
+    # Bind 127.0.0.1 by default (systemd setup: only nginx reaches it). In a
+    # container set HOST=0.0.0.0 so Docker's published port can forward in; the
+    # container is still published to 127.0.0.1 on the host, so it stays private.
+    host = os.environ.get("HOST", "127.0.0.1")
     handler = partial(Handler, directory=str(ROOT))
-    srv = ThreadingHTTPServer(("127.0.0.1", port), handler)
-    print(f"World Cup globe -> http://127.0.0.1:{port}  (live feed at /api/feed)")
+    srv = ThreadingHTTPServer((host, port), handler)
+    print(f"World Cup globe -> http://{host}:{port}  (live feed at /api/feed)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

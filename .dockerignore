@@ -1,0 +1,15 @@
+# Keep the image small and free of host/editor junk.
+.git
+.gitignore
+.claude
+.DS_Store
+*.swp
+
+# Python caches
+__pycache__/
+*.pyc
+
+# Docs / deploy assets aren't needed inside the running container.
+DEPLOY.md
+README.md
+deploy/

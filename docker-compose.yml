@@ -1,0 +1,26 @@
+# Runs the World Cup globe in a container, published ONLY to 127.0.0.1:8642 on
+# the host. Your existing web server (nginx/Apache) reverse-proxies
+# gavinbytes.tech/worldcup -> 127.0.0.1:8642. Nothing new is exposed publicly.
+#
+#   docker compose up -d --build      # build + start in the background
+#   docker compose logs -f            # watch logs
+#   docker compose down               # stop & remove
+#   docker compose up -d --build      # redeploy after a git pull
+
+services:
+  worldcup:
+    build: .
+    image: worldcup:latest
+    container_name: worldcup
+    restart: unless-stopped
+    environment:
+      PORT: "8642"
+      HOST: "0.0.0.0"
+    # "127.0.0.1:8642:8642" = bind the host side to loopback only, so the port
+    # is NOT reachable from the internet — only via the local reverse proxy.
+    ports:
+      - "127.0.0.1:8642:8642"
+    # Optional: persist the bundled fallback schedule so a host-side cron can
+    # refresh it (see runbook). Live scores work without this via /api/feed.
+    # volumes:
+    #   - ./data/matches.json:/app/data/matches.json

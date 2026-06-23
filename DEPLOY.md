@@ -11,7 +11,65 @@ domain root or under `/worldcup` with no edits.
 
 ---
 
-## Recommended: serve.py behind nginx (reliable live scores)
+## Docker (run the app in a container, proxy /worldcup to it)
+
+The container runs `serve.py` and is published **only** to `127.0.0.1:8642` on the
+host, so it's never exposed to the internet directly — your existing web server
+reverse-proxies `/worldcup` to it. This leaves the rest of `gavinbytes.tech`
+untouched.
+
+```sh
+# 1. Get the code on the VPS
+sudo mkdir -p /opt && cd /opt
+sudo git clone https://github.com/gavinbytes/world-cup-2026.git worldcup
+cd worldcup
+
+# 2. Install Docker if it isn't there (Ubuntu/Debian)
+command -v docker || curl -fsSL https://get.docker.com | sudo sh
+
+# 3. Build + start (publishes to 127.0.0.1:8642 only)
+sudo docker compose up -d --build
+sudo docker compose ps                              # should be "running (healthy)"
+curl -s localhost:8642/api/feed | head -c 80        # should print JSON
+
+# 4. See what's already serving gavinbytes.tech on 80/443, then wire up /worldcup
+sudo ss -ltnp '( sport = :80 or sport = :443 )'     # shows nginx / apache / etc.
+```
+
+If that shows **nginx**, paste the two blocks from `deploy/nginx-worldcup.conf`
+into your existing `server { }` for gavinbytes.tech, then
+`sudo nginx -t && sudo systemctl reload nginx`.
+
+If it shows **apache2**, use the Apache block under "Alternative A" below
+(`sudo a2enmod proxy proxy_http && sudo systemctl reload apache2`).
+
+Both proxy to `http://127.0.0.1:8642/` — the same local port the container
+publishes — so the existing reverse-proxy config works unchanged.
+
+Visit **https://gavinbytes.tech/worldcup/** — done.
+
+### Updating later
+
+```sh
+cd /opt/worldcup && sudo git pull && sudo docker compose up -d --build
+```
+
+### Keeping the bundled schedule fresh (optional)
+
+The live feed (`/api/feed`) keeps a running page current regardless. To also
+refresh the bundled first-paint/offline snapshot, uncomment the `volumes:` line
+in `docker-compose.yml` (maps `data/matches.json` into the container), then add a
+host cron:
+
+```sh
+sudo crontab -e
+# add:
+0 6 * * * cd /opt/worldcup && ./update-schedule.sh >/dev/null 2>&1
+```
+
+---
+
+## Recommended (non-Docker): serve.py behind nginx (reliable live scores)
 
 On the VPS (Ubuntu/Debian; Python 3 is already installed):
 
