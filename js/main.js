@@ -196,6 +196,29 @@ let mode = 'globe';
 let selectedKey = null;
 let flight = null;
 
+// On phones the venue info card is a bottom sheet covering the lower part of
+// the screen, so the camera's centred subject (the stadium) would land behind
+// it. Shift the rendered frame up via a view offset so the stadium sits in the
+// visible band above the card. Ramped each frame (see animate) so the lift
+// eases in with the fly-in and back out on return to the globe.
+const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+const STADIUM_VIEW_LIFT = 0.3; // fraction of viewport height
+let viewShift = 0;             // current (eased) lift
+let appliedShift = -1;         // last lift pushed to the projection matrix
+
+function desiredViewShift() {
+  const goingToStadium = mode === 'stadium' || (flight && selectedKey);
+  return isMobile() && goingToStadium ? STADIUM_VIEW_LIFT : 0;
+}
+
+function applyViewShift(frac) {
+  if (Math.abs(frac - appliedShift) < 0.002) return; // avoid redundant rebuilds
+  appliedShift = frac;
+  if (frac < 0.002) { camera.clearViewOffset(); return; }
+  const W = window.innerWidth, H = window.innerHeight;
+  camera.setViewOffset(W, H, 0, frac * H, W, H);
+}
+
 // During a flight the camera is driven manually (controls.update() is not
 // called), so OrbitControls can't clamp or fight the animation. camera.up is
 // lerped too, rolling the horizon upright as we land at a stadium.
@@ -440,6 +463,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  appliedShift = -1; // re-derive the view offset against the new viewport size
   // keep the globe fully in frame when the viewport narrows (e.g. rotation)
   if (mode === 'globe' && !flight) camera.position.setLength(globeDist());
 });
@@ -471,6 +495,9 @@ function animate(now) {
   } else {
     controls.update();
   }
+
+  viewShift += (desiredViewShift() - viewShift) * Math.min(1, dt * 4);
+  applyViewShift(viewShift);
 
   sun.position.copy(camera.position).setLength(500).add(new THREE.Vector3(0, 180, 0));
   fx.update(dt, now / 1000);
