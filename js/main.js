@@ -250,6 +250,10 @@ function ensurePatch(key) {
     mesh.visible = false;
     scene.add(mesh);
     patches.set(key, mesh);
+  }, undefined, () => {
+    // imagery fetch failed (offline / Esri hiccup): drop the placeholder so a
+    // later visit retries instead of leaving the venue permanently patch-less
+    patches.delete(key);
   });
 }
 
@@ -401,14 +405,17 @@ boot().catch((err) => {
 
 // Live scores: poll the fixture feed every minute. The feed sends no CORS
 // header, so the browser can't read it directly. When served via serve.py we
-// hit the same-origin /api/feed proxy (reliable); on plain static hosting we
-// fall back through public CORS proxies. On total failure the last good data
-// (bundled data/matches.json at boot, or the previous poll) stays in place.
+// hit the same-origin proxy (reliable); on plain static hosting we fall back
+// through public CORS proxies. On total failure the last good data (bundled
+// data/matches.json at boot, or the previous poll) stays in place.
 const FEED_URL = 'https://fixturedownload.com/feed/json/fifa-world-cup-2026';
 
 async function fetchLiveFeed() {
   const sources = [
-    '/api/feed', // serve.py same-origin proxy — no CORS, most reliable
+    // serve.py proxy, addressed relative to the page so it also resolves when
+    // the app is mounted under a sub-path (e.g. /worldcup/) behind a reverse
+    // proxy. On static hosting this 404s and we fall through to the proxies.
+    new URL('api/feed', document.baseURI).href,
     `https://api.allorigins.win/raw?url=${encodeURIComponent(FEED_URL)}`,
     `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(FEED_URL)}`,
     `https://corsproxy.io/?url=${encodeURIComponent(FEED_URL)}`,

@@ -1,0 +1,33 @@
+# systemd unit for the World Cup globe live-feed server (serve.py).
+# It listens on 127.0.0.1:8642 only; nginx reverse-proxies /worldcup to it.
+#
+# Install:
+#   sudo cp deploy/worldcup.service /etc/systemd/system/worldcup.service
+#   # edit User= and WorkingDirectory= below to match where you cloned the repo
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now worldcup
+#   systemctl status worldcup
+
+[Unit]
+Description=World Cup 2026 Stadium Globe (serve.py live-feed proxy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Run as an unprivileged user. www-data exists on most Hostinger Ubuntu images;
+# change it (and the path) if you cloned somewhere else / under another user.
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/world-cup-2026
+Environment=PORT=8642
+ExecStart=/usr/bin/python3 serve.py
+Restart=on-failure
+RestartSec=3
+# serve.py binds 127.0.0.1 and only reads its own folder; lock it down further:
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

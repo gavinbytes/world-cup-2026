@@ -17,7 +17,9 @@ proxy needed). Plain static hosting still works -- the page then falls back
 to public CORS proxies (see js/main.js), just less reliably.
 """
 import json
+import os
 import sys
+import threading
 import time
 import urllib.request
 from functools import partial
@@ -29,22 +31,30 @@ CACHE_TTL = 20  # s — collapse bursts/multiple tabs into one upstream fetch
 ROOT = Path(__file__).resolve().parent
 
 _cache = {"at": 0.0, "body": None}
+_lock = threading.Lock()
 
 
 def fetch_feed():
     """Return the feed bytes, cached for CACHE_TTL. Only a valid, non-empty
-    match array is cached, so a bad upstream response never sticks."""
+    match array is cached, so a bad upstream response never sticks. The lock
+    serialises refreshes so concurrent requests (multiple tabs) collapse into
+    one upstream fetch instead of racing on the shared cache dict."""
     now = time.time()
     if _cache["body"] is not None and now - _cache["at"] < CACHE_TTL:
         return _cache["body"]
-    req = urllib.request.Request(FEED_URL, headers={"User-Agent": "world-cup-globe/1.0"})
-    with urllib.request.urlopen(req, timeout=15) as r:
-        body = r.read()
-    data = json.loads(body)  # raises on non-JSON -> caller falls back
-    if not (isinstance(data, list) and data):
-        raise ValueError("feed was not a non-empty match array")
-    _cache.update(at=now, body=body)
-    return body
+    with _lock:
+        # another thread may have refreshed the cache while we waited on the lock
+        now = time.time()
+        if _cache["body"] is not None and now - _cache["at"] < CACHE_TTL:
+            return _cache["body"]
+        req = urllib.request.Request(FEED_URL, headers={"User-Agent": "world-cup-globe/1.0"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            body = r.read()
+        data = json.loads(body)  # raises on non-JSON -> caller falls back
+        if not (isinstance(data, list) and data):
+            raise ValueError("feed was not a non-empty match array")
+        _cache.update(at=now, body=body)
+        return body
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -72,7 +82,7 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8642
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("PORT", 8642))
     handler = partial(Handler, directory=str(ROOT))
     srv = ThreadingHTTPServer(("127.0.0.1", port), handler)
     print(f"World Cup globe -> http://127.0.0.1:{port}  (live feed at /api/feed)")

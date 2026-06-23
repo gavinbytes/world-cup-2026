@@ -1,4 +1,4 @@
-import { teamLabel, teamFlag } from './venues.js';
+import { teamLabel, teamFlag, esc } from './venues.js';
 
 // Official knockout tree (from the published FIFA schedule): which match
 // winners feed each tie. [home feeder, away feeder] by match number.
@@ -116,8 +116,8 @@ function matchCard(mn, interactive, onChange) {
     const score = m && (i === 0 ? m.HomeTeamScore : m.AwayTeamScore);
     row.innerHTML = `
       <span class="bFlag">${team ? teamFlag(team) : ''}</span>
-      <span class="bName">${shortLabel(team)}</span>
-      <span class="bScore">${score ?? ''}</span>`;
+      <span class="bName">${esc(shortLabel(team))}</span>
+      <span class="bScore">${esc(score ?? '')}</span>`;
     if (team) row.title = teamLabel(team);
     if (interactive && team && !decided) {
       row.addEventListener('click', () => {
@@ -156,7 +156,7 @@ export function renderBracket(container, { interactive = false, onChange } = {})
   const champCard = document.createElement('div');
   champCard.className = 'bMatch champCard';
   champCard.innerHTML = `<div class="champFlag">${champ ? teamFlag(champ) : '🏆'}</div>
-    <div class="champName">${champ ? champ : 'TBD'}</div>`;
+    <div class="champName">${champ ? esc(champ) : 'TBD'}</div>`;
   body.appendChild(champCard);
   body.appendChild(matchCard(THIRD_PLACE, interactive, onChange));
   const thirdLabel = document.createElement('div');

@@ -253,3 +253,12 @@ export function roundLabel(match) {
   if (n === 103) return 'Third place';
   return 'Final';
 }
+
+// Escape for safe interpolation into innerHTML. The fixture feed is fetched
+// through untrusted CORS proxies on plain static hosting (see js/main.js), so
+// every team/group/location string from it must be escaped before it reaches
+// the DOM as HTML.
+const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+export function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
+}

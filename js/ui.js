@@ -1,4 +1,4 @@
-import { VENUES, ROOF_LABELS, teamLabel, teamFlag, roundLabel } from './venues.js';
+import { VENUES, ROOF_LABELS, teamLabel, teamFlag, roundLabel, esc } from './venues.js';
 import { getMatchWeather, cToF, kmhToMph } from './weather.js';
 import { renderBracket, setBracketMatches, openPredictions, initBracketUI } from './bracket.js';
 
@@ -32,8 +32,8 @@ function liveMinuteLabel(m) {
 
 function liveCenterHTML(m) {
   const score = m.HomeTeamScore != null
-    ? `<span class="score">${m.HomeTeamScore}–${m.AwayTeamScore}</span>` : '';
-  return `<span class="liveWrap">${score}<span class="liveBadge" data-mn="${m.MatchNumber}">● ${liveMinuteLabel(m)}</span></span>`;
+    ? `<span class="score">${esc(m.HomeTeamScore)}–${esc(m.AwayTeamScore)}</span>` : '';
+  return `<span class="liveWrap">${score}<span class="liveBadge" data-mn="${esc(m.MatchNumber)}">● ${liveMinuteLabel(m)}</span></span>`;
 }
 
 // Tick the on-screen match clocks; fully re-render only when a match starts
@@ -43,7 +43,7 @@ function liveTick() {
   const nowLive = MATCHES.filter(isLive).map((m) => m.MatchNumber).join(',');
   if (nowLive !== lastLiveSet) {
     lastLiveSet = nowLive;
-    renderActiveTab();
+    refreshActiveTab();
     if (currentVenueKey) showVenuePanel(currentVenueKey);
     return;
   }
@@ -70,13 +70,13 @@ function teamHTML(name, alignRight = false) {
   const flag = teamFlag(name);
   const known = label === name; // real team vs placeholder
   return alignRight
-    ? `<span class="team ${known ? '' : 'tbd'}">${label} <span class="flag">${flag}</span></span>`
-    : `<span class="team ${known ? '' : 'tbd'}"><span class="flag">${flag}</span> ${label}</span>`;
+    ? `<span class="team ${known ? '' : 'tbd'}">${esc(label)} <span class="flag">${flag}</span></span>`
+    : `<span class="team ${known ? '' : 'tbd'}"><span class="flag">${flag}</span> ${esc(label)}</span>`;
 }
 
 function scoreHTML(m) {
   if (m.HomeTeamScore != null && m.AwayTeamScore != null) {
-    return `<span class="score">${m.HomeTeamScore}–${m.AwayTeamScore}</span>`;
+    return `<span class="score">${esc(m.HomeTeamScore)}–${esc(m.AwayTeamScore)}</span>`;
   }
   return `<span class="vs">${userTime(matchDate(m), { hour: 'numeric', minute: '2-digit' })}</span>`;
 }
@@ -97,16 +97,36 @@ function matchRow(m, metaText) {
 
 // ---------- left panel: tabbed views ----------
 
-function renderActiveTab() {
+function renderActiveTab({ autoScroll = true } = {}) {
   $('filterBar').style.display = activeTab === 'schedule' ? '' : 'none';
   const list = $('matchList');
   list.innerHTML = '';
-  if (activeTab === 'schedule') buildMatchList(list);
+  if (activeTab === 'schedule') buildMatchList(list, autoScroll);
   else if (activeTab === 'groups') buildGroups(list);
   else buildKnockout(list);
 }
 
-function buildMatchList(list) {
+// Re-render the active tab for a live data/clock update without disturbing the
+// user's scroll position or which groups they've expanded (a full re-render
+// otherwise resets both on every 30–60 s poll while they're browsing).
+function refreshActiveTab() {
+  const list = $('matchList');
+  const scroll = list ? list.scrollTop : 0;
+  const open = new Set([...document.querySelectorAll('.groupCard')]
+    .filter((c) => { const gm = c.querySelector('.groupMatches'); return gm && !gm.hidden; })
+    .map((c) => c.dataset.group));
+  renderActiveTab({ autoScroll: false });
+  for (const c of document.querySelectorAll('.groupCard')) {
+    if (!open.has(c.dataset.group)) continue;
+    const gm = c.querySelector('.groupMatches');
+    const btn = c.querySelector('.groupToggle');
+    if (gm) gm.hidden = false;
+    if (btn) btn.textContent = 'Matches ▴';
+  }
+  if (list) list.scrollTop = scroll;
+}
+
+function buildMatchList(list, autoScroll = true) {
   let matches = [...MATCHES].sort((a, b) => matchDate(a) - matchDate(b));
   if (schedFilter === 'today') matches = matches.filter((m) => isToday(matchDate(m)));
   if (schedFilter === 'tomorrow') matches = matches.filter((m) => isTomorrow(matchDate(m)));
@@ -138,14 +158,14 @@ function buildMatchList(list) {
 
     for (const m of dayMatches) {
       const v = VENUES[m.Location];
-      const el = matchRow(m, `${roundLabel(m)} · ${v ? v.city : m.Location}`);
+      const el = matchRow(m, `${esc(roundLabel(m))} · ${esc(v ? v.city : m.Location)}`);
       list.appendChild(el);
       if (!firstUpcomingEl && matchDate(m) > new Date(Date.now() - 2.2 * 3600000)) {
         firstUpcomingEl = el;
       }
     }
   }
-  if (firstUpcomingEl && schedFilter === 'all') {
+  if (firstUpcomingEl && schedFilter === 'all' && autoScroll) {
     requestAnimationFrame(() => firstUpcomingEl.scrollIntoView({ block: 'start' }));
   }
 }
@@ -180,13 +200,14 @@ function buildGroups(list) {
 
     const card = document.createElement('div');
     card.className = 'groupCard';
+    card.dataset.group = name;
     card.innerHTML = `
-      <div class="groupName">${name}</div>
+      <div class="groupName">${esc(name)}</div>
       <table class="standings">
         <thead><tr><th></th><th>P</th><th>GD</th><th>Pts</th></tr></thead>
         <tbody>${teams.map((t) => {
           const gd = t.gf - t.ga;
-          return `<tr><td>${teamFlag(t.name)} ${t.name}</td><td>${t.p}</td>
+          return `<tr><td>${teamFlag(t.name)} ${esc(t.name)}</td><td>${t.p}</td>
             <td>${gd > 0 ? '+' : ''}${gd}</td><td class="ptsCol">${t.pts}</td></tr>`;
         }).join('')}</tbody>
       </table>
@@ -199,10 +220,10 @@ function buildGroups(list) {
       const d = matchDate(m);
       const row = document.createElement('div');
       row.className = 'miniMatch clickable';
-      const mid = m.HomeTeamScore != null ? `<b>${m.HomeTeamScore}–${m.AwayTeamScore}</b>` : 'v';
+      const mid = m.HomeTeamScore != null ? `<b>${esc(m.HomeTeamScore)}–${esc(m.AwayTeamScore)}</b>` : 'v';
       row.innerHTML = `
-        <span>${teamFlag(m.HomeTeam)} ${m.HomeTeam} ${mid} ${m.AwayTeam} ${teamFlag(m.AwayTeam)}</span>
-        <span class="miniMeta">${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${v ? v.city : ''}</span>`;
+        <span>${teamFlag(m.HomeTeam)} ${esc(m.HomeTeam)} ${mid} ${esc(m.AwayTeam)} ${teamFlag(m.AwayTeam)}</span>
+        <span class="miniMeta">${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · ${esc(v ? v.city : '')}</span>`;
       row.addEventListener('click', () => HANDLERS.onVenueClick && HANDLERS.onVenueClick(m.Location));
       gmDiv.appendChild(row);
     }
@@ -258,7 +279,7 @@ function weatherHTML(w) {
       day${w.opensInDays === 1 ? '' : 's'} (16-day horizon)</div>`;
   }
   if (w.status === 'error') {
-    return `<div class="wxSoon">⚠️ Weather unavailable (${w.message})</div>`;
+    return `<div class="wxSoon">⚠️ Weather unavailable (${esc(w.message)})</div>`;
   }
   return `
     <div class="wxMain">
@@ -292,15 +313,15 @@ export async function showVenuePanel(locationKey) {
     const d = matchDate(nm);
     nextHTML = `
       <div class="nextLabel">${isLive(nm)
-        ? `<span class="liveBadge" data-mn="${nm.MatchNumber}">● ${liveMinuteLabel(nm)}</span> <span class="liveBadge">LIVE NOW</span>`
+        ? `<span class="liveBadge" data-mn="${esc(nm.MatchNumber)}">● ${liveMinuteLabel(nm)}</span> <span class="liveBadge">LIVE NOW</span>`
         : 'Next match here'}</div>
       <div class="bigMatch">
         <div class="bigTeams">
           ${teamHTML(nm.HomeTeam)}
-          <span class="bigVs">${nm.HomeTeamScore != null ? `${nm.HomeTeamScore}–${nm.AwayTeamScore}` : 'vs'}</span>
+          <span class="bigVs">${nm.HomeTeamScore != null ? `${esc(nm.HomeTeamScore)}–${esc(nm.AwayTeamScore)}` : 'vs'}</span>
           ${teamHTML(nm.AwayTeam, true)}
         </div>
-        <div class="bigMeta">Match ${nm.MatchNumber} · ${roundLabel(nm)}</div>
+        <div class="bigMeta">Match ${esc(nm.MatchNumber)} · ${esc(roundLabel(nm))}</div>
         <div class="bigTime">
           ${venueTime(d, v.tz, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} local
           · ${userTime(d, { hour: 'numeric', minute: '2-digit' })} your time
@@ -314,8 +335,8 @@ export async function showVenuePanel(locationKey) {
   const moreHTML = next.slice(1).map((m) => {
     const d = matchDate(m);
     return `<div class="miniMatch">
-      <span>${teamFlag(m.HomeTeam)} ${teamLabel(m.HomeTeam)} v ${teamLabel(m.AwayTeam)} ${teamFlag(m.AwayTeam)}</span>
-      <span class="miniMeta">${venueTime(d, v.tz, { month: 'short', day: 'numeric' })} · ${roundLabel(m)}</span>
+      <span>${teamFlag(m.HomeTeam)} ${esc(teamLabel(m.HomeTeam))} v ${esc(teamLabel(m.AwayTeam))} ${teamFlag(m.AwayTeam)}</span>
+      <span class="miniMeta">${venueTime(d, v.tz, { month: 'short', day: 'numeric' })} · ${esc(roundLabel(m))}</span>
     </div>`;
   }).join('');
 
@@ -365,7 +386,7 @@ export function applyLiveMatches(matches) {
   if (sig === liveSig) return;
   liveSig = sig;
   updatePillCounts();
-  renderActiveTab();
+  refreshActiveTab();
   if (currentVenueKey) showVenuePanel(currentVenueKey);
 }
 
@@ -379,8 +400,8 @@ export function setTooltip(x, y, locationKey) {
   }
   const v = VENUES[locationKey];
   const nm = upcomingAt(locationKey, 1)[0];
-  tip.innerHTML = `<b>${v.stadium}</b> · ${v.city}` + (nm
-    ? `<br>${teamFlag(nm.HomeTeam)} ${teamLabel(nm.HomeTeam)} v ${teamLabel(nm.AwayTeam)} ${teamFlag(nm.AwayTeam)} · ${matchDate(nm).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+  tip.innerHTML = `<b>${esc(v.stadium)}</b> · ${esc(v.city)}` + (nm
+    ? `<br>${teamFlag(nm.HomeTeam)} ${esc(teamLabel(nm.HomeTeam))} v ${esc(teamLabel(nm.AwayTeam))} ${teamFlag(nm.AwayTeam)} · ${matchDate(nm).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
     : '<br>Tournament complete here');
   tip.style.left = `${x + 14}px`;
   tip.style.top = `${y + 14}px`;

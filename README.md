@@ -27,6 +27,13 @@ Any plain static server works too (e.g. `python3 -m http.server 8000`); it just
 needs HTTP so the JSON can load. Without `serve.py` the page falls back to
 public CORS proxies for live scores, which are less reliable.
 
+## Deploy
+
+To host it on a server (root or under a sub-path like `/worldcup`, behind nginx
+or Apache), see **[DEPLOY.md](DEPLOY.md)**. The app is mount-point agnostic —
+asset URLs and the feed proxy are page-relative, so no code changes are needed
+to serve it from a sub-path.
+
 ## Data sources
 
 - **Schedule / results** — [fixturedownload.com](https://fixturedownload.com)
