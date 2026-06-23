@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>World Cup 2026 — Stadium Globe</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="scene"></div>
+
+  <header id="topbar">
+    <div class="title">🏆 World Cup 26 <span>Stadium Globe</span></div>
+    <div class="sub">104 matches · Jun 11 – Jul 19, 2026 · 16 stadiums · 3 countries</div>
+  </header>
+
+  <aside id="matchPanel">
+    <div class="panelHead">
+      <div class="tabs">
+        <button class="tab active" data-tab="schedule">Schedule</button>
+        <button class="tab" data-tab="groups">Groups</button>
+        <button class="tab" data-tab="knockout">Knockout</button>
+      </div>
+      <button id="hideListBtn" title="Collapse">≡</button>
+    </div>
+    <div id="filterBar" class="filterBar">
+      <button class="pill active" data-filter="all">All</button>
+      <button class="pill" data-filter="today">Today</button>
+      <button class="pill" data-filter="tomorrow">Tomorrow</button>
+    </div>
+    <div id="matchList"></div>
+  </aside>
+
+  <aside id="venuePanel" class="hidden"></aside>
+
+  <button id="schedFab">📅 Matches</button>
+
+  <div id="tooltip" class="hidden"></div>
+
+  <div id="hint">Drag to spin · Click a beacon or a match to fly to its stadium</div>
+
+  <div id="credit">Imagery © Esri · Schedule: fixturedownload.com · Weather: Open-Meteo</div>
+
+  <div id="bracketOverlay" class="hidden">
+    <div class="bracketHead">
+      <div class="bracketTitle">🔮 My Prediction Bracket
+        <span>tap a team to advance them</span>
+      </div>
+      <div class="bracketBtns">
+        <button id="bracketDownload">💾 Save image</button>
+        <button id="bracketReset">↺ Reset</button>
+        <button id="bracketClose">✕</button>
+      </div>
+    </div>
+    <div id="bracketBody"></div>
+  </div>
+
+  <div id="loading">Loading schedule…</div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

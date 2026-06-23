@@ -1,0 +1,10 @@
+# OS / editor junk
+.DS_Store
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+
+# Claude Code local (machine-specific permissions/paths)
+.claude/settings.local.json
